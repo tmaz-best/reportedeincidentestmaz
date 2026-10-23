@@ -194,7 +194,7 @@ footer{color:var(--muted);font-size:.78rem;padding-block:10px 30px;text-align:ce
   <div class="wrap">
     <div class="logo"><img id="logoImg" alt="tmaz Terminal Marítima Mazatlán"></div>
     <div class="ttl">
-      <div class="code">TMAZ-SIG-SEG-R-08 · Versión 00 · <span id="folioInd"></span> <span id="saveInd" class="save-ind"></span></div>
+      <div class="code">TMAZ-SIG-SEG-R-08 · Versión 00 <span id="saveInd" class="save-ind"></span></div>
       <h1>Reporte de Incidente</h1>
     </div>
     <div class="tools">
@@ -253,9 +253,10 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const p2=n=>String(n).padStart(2,'0');
 function today(){ const d=new Date(); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
 function nowT(){ const d=new Date(); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; }
-function newFolio(){ const d=new Date(); return `R08-${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`; }
+function repName(r){ r=r||S; const n=r.d&&r.d.testigo; const f=r.d&&r.d.fInc; return (n||'Sin nombre')+(f?' · '+fmtDate(f):''); }
+function fileBase(){ const f=S.d.fInc||today(); return `${FORM.code}_${f}${S.d.testigo?'_'+slug(S.d.testigo):''}`; }
 function blank(){ return {
-  id:uid(), folio:newFolio(), created:Date.now(), updated:Date.now(), step:0,
+  id:uid(), created:Date.now(), updated:Date.now(), step:0,
   d:{testigo:'',cargo:'',supervisor:'',turno:'',antig:'',edad:'',lugar:'',contacto:'',empresa:'TMAZ',empresaNom:'',fInc:'',hInc:'',fEnt:today(),hEnt:nowT(),actividad:'',carga:[],cargaOtra:'',alcance:[],area:''},
   c:{puesto:'',habitual:'',motivo:''},
   x:{antes:'',hecho:'',consec:'',despues:''},
@@ -430,7 +431,6 @@ const LEGAL='“La simulación de un incidente de trabajo puede ser sancionada y
 
 const VIEWS=[vDatos,vContexto,vDesc,vEntorno,vFotos,vFirmas];
 function render(){
-  document.getElementById('folioInd').textContent='Folio '+S.folio;
   renderSteps();
   const m=document.getElementById('main'); m.innerHTML=`<div class="panel">${VIEWS[S.step]()}</div>`;
   m.querySelectorAll('textarea').forEach(grow);
@@ -461,23 +461,23 @@ main.addEventListener('click',async e=>{
   const mv=e.target.closest('[data-mv]'); if(mv){ const i=+mv.dataset.mv, j=i+(+mv.dataset.d); [S.fotos[i],S.fotos[j]]=[S.fotos[j],S.fotos[i]]; save(); render(); return; }
   if(e.target.id==='camBtn') document.getElementById('camIn').click();
   if(e.target.id==='galBtn') document.getElementById('photoIn').click();
-  if(e.target.id==='pdfBtn'){ const b=e.target; b.disabled=true; b.textContent='Generando…'; try{ const bytes=await exportPdf(); downloadBlob(new Blob([bytes],{type:'application/pdf'}),`${FORM.code}_${S.folio}${S.d.testigo?'_'+slug(S.d.testigo):''}.pdf`); toast('PDF descargado'); }catch(err){ console.error(err); toast('No se pudo generar el PDF: '+err.message); } b.disabled=false; b.textContent='⬇ Descargar PDF'; }
-  if(e.target.id==='bakBtn'){ downloadBlob(new Blob([JSON.stringify({form:FORM.code,v:1,data:S})],{type:'application/json'}),`${FORM.code}_${S.folio}_respaldo.json`); toast('Respaldo descargado'); }
+  if(e.target.id==='pdfBtn'){ const b=e.target; b.disabled=true; b.textContent='Generando…'; try{ const bytes=await exportPdf(); downloadBlob(new Blob([bytes],{type:'application/pdf'}),`${fileBase()}.pdf`); toast('PDF descargado'); }catch(err){ console.error(err); toast('No se pudo generar el PDF: '+err.message); } b.disabled=false; b.textContent='⬇ Descargar PDF'; }
+  if(e.target.id==='bakBtn'){ downloadBlob(new Blob([JSON.stringify({form:FORM.code,v:1,data:S})],{type:'application/json'}),`${fileBase()}_respaldo.json`); toast('Respaldo descargado'); }
   if(e.target.id==='openBtn') document.getElementById('jsonIn').click();
-  const op=e.target.closest('[data-open]'); if(op){ await flush(); const r=await getRep(op.dataset.open); if(r){ S=merge(blank(),r); setCur(S.id); render(); toast('Reporte '+S.folio+' abierto'); } return; }
+  const op=e.target.closest('[data-open]'); if(op){ await flush(); const r=await getRep(op.dataset.open); if(r){ S=merge(blank(),r); setCur(S.id); render(); toast('Reporte abierto: '+repName()); } return; }
   const dl=e.target.closest('[data-del]'); if(dl){ if(confirm('¿Borrar este reporte de este equipo? No se puede deshacer.')){ await delRep(dl.dataset.del); renderSaved(); toast('Reporte borrado'); } return; }
 });
 main.addEventListener('keydown',e=>{ const sg=e.target.closest('[data-sig]'); if(sg&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); openSig(sg.dataset.sig); } });
 
 async function flush(){ clearTimeout(saveT); try{ await putRep(JSON.parse(JSON.stringify(S))); }catch(e){} }
-document.getElementById('newBtn').onclick=async()=>{ if(!confirm('¿Iniciar un reporte nuevo? El actual queda guardado en este equipo.')) return; await flush(); S=blank(); save(); render(); toast('Reporte nuevo '+S.folio); };
+document.getElementById('newBtn').onclick=async()=>{ if(!confirm('¿Iniciar un reporte nuevo? El actual queda guardado en este equipo.')) return; await flush(); S=blank(); save(); render(); toast('Reporte nuevo iniciado'); };
 
 async function renderSaved(){ const el=document.getElementById('savedList'); if(!el) return; let list=[]; try{ list=await allRep(); }catch(e){ el.innerHTML='<span class="hint">No disponible en este navegador.</span>'; return; }
   if(!list.some(r=>r.id===S.id)) list.push(S);
   list.sort((a,b)=>b.updated-a.updated);
-  el.innerHTML=list.map(r=>`<div class="srow${r.id===S.id?' cur':''}"><div><b>${esc(r.folio)} · ${esc(r.d&&r.d.testigo||'Sin nombre')}</b><span>${esc(r.d&&r.d.lugar||'Sin lugar')} · Incidente ${esc(fmtDate(r.d&&r.d.fInc)||'sin fecha')} · Editado ${esc(fmtTs(r.updated))}</span></div>${r.id===S.id?'<span class="hint" style="font-weight:800">Abierto</span>':`<button class="btn sm" data-open="${esc(r.id)}">Abrir</button>`}${r.id===S.id?'<span></span>':`<button class="x" data-del="${esc(r.id)}" title="Borrar" aria-label="Borrar reporte">×</button>`}</div>`).join(''); }
+  el.innerHTML=list.map(r=>`<div class="srow${r.id===S.id?' cur':''}"><div><b>${esc(r.d&&r.d.testigo||'Sin nombre')}</b><span>${esc(r.d&&r.d.lugar||'Sin lugar')} · Incidente ${esc(fmtDate(r.d&&r.d.fInc)||'sin fecha')} · Editado ${esc(fmtTs(r.updated))}</span></div>${r.id===S.id?'<span class="hint" style="font-weight:800">Abierto</span>':`<button class="btn sm" data-open="${esc(r.id)}">Abrir</button>`}${r.id===S.id?'<span></span>':`<button class="x" data-del="${esc(r.id)}" title="Borrar" aria-label="Borrar reporte">×</button>`}</div>`).join(''); }
 
-document.getElementById('jsonIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const o=JSON.parse(await f.text()); const data=o.data||o; if(!data.d||!data.x) throw new Error('no es un respaldo del R-08'); await flush(); S=merge(blank(),data); if(!S.id) S.id=uid(); save(false); render(); toast('Respaldo '+S.folio+' abierto'); }catch(err){ toast('No se pudo abrir: '+err.message); } };
+document.getElementById('jsonIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const o=JSON.parse(await f.text()); const data=o.data||o; if(!data.d||!data.x) throw new Error('no es un respaldo del R-08'); await flush(); S=merge(blank(),data); if(!S.id) S.id=uid(); save(false); render(); toast('Respaldo abierto: '+repName()); }catch(err){ toast('No se pudo abrir: '+err.message); } };
 
 /* ---------- fotos ---------- */
 function loadImg(file){ return new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const im=new Image(); im.onload=()=>{ res(im); setTimeout(()=>URL.revokeObjectURL(u),1000); }; im.onerror=()=>rej(new Error('formato no compatible')); im.src=u; }); }
@@ -524,120 +524,129 @@ const hexRgb=h=>PDFLib.rgb(parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),1
 async function exportPdf(){
   if(!window.PDFLib) throw new Error('no cargó la librería de PDF (revisa tu conexión)');
   const {PDFDocument,StandardFonts}=PDFLib;
-  const doc=await PDFDocument.create(); doc.setTitle('Reporte de Incidente · '+FORM.code+' · '+S.folio); doc.setAuthor('TMAZ · Seguridad Industrial'); doc.setSubject(S.d.lugar||'');
+  const doc=await PDFDocument.create(); doc.setTitle('Reporte de Incidente · '+FORM.code+(S.d.testigo?' · '+S.d.testigo:'')); doc.setAuthor('TMAZ · Seguridad Industrial'); doc.setSubject(S.d.lugar||''); doc.setCreator('TMAZ-SIG');
   const fR=await doc.embedFont(StandardFonts.Helvetica), fB=await doc.embedFont(StandardFonts.HelveticaBold), fI=await doc.embedFont(StandardFonts.HelveticaOblique);
   const logo=await doc.embedJpg(b64ToBytes(dataB64(LOGO)));
-  const W=612,H=792,M=32,CW=W-2*M;
-  const C={g:hexRgb('0B4A2C'),g2:hexRgb('1E5B2E'),r:hexRgb('E3233F'),t:hexRgb('14231A'),m:hexRgb('4E6356'),lab:hexRgb('7F7F7F'),ln:hexRgb('1E5B2E'),b:hexRgb('A9BEAE'),sub:hexRgb('EAF1EB'),w:hexRgb('FFFFFF')};
+  const W=612,H=792,M=34,CW=W-2*M,GAP=6,FOOT=M+18;
+  const C={g:hexRgb('0B4A2C'),g2:hexRgb('13663E'),r:hexRgb('E3233F'),t:hexRgb('14231A'),m:hexRgb('4E6356'),lab:hexRgb('13663E'),b:hexRgb('C9D7CC'),bs:hexRgb('A9BEAE'),sub:hexRgb('F3F7F4'),tint:hexRgb('E3EFE6'),w:hexRgb('FFFFFF'),ph:hexRgb('9AAFA0')};
   let page,y; const pages=[];
-  const wrap=(s,font,size,maxW)=>{ const out=[]; pdfSafe(s).split('\n').forEach(par=>{ const words=par.split(/\s+/).filter(Boolean); let line=''; if(!words.length){ out.push(''); return; } words.forEach(wd=>{ const tryL=line?line+' '+wd:wd; if(font.widthOfTextAtSize(tryL,size)<=maxW){ line=tryL; return; } if(line) out.push(line); while(font.widthOfTextAtSize(wd,size)>maxW&&wd.length>1){ let k=wd.length; while(k>1&&font.widthOfTextAtSize(wd.slice(0,k),size)>maxW) k--; out.push(wd.slice(0,k)); wd=wd.slice(k); } line=wd; }); if(line) out.push(line); }); while(out.length>1&&out[out.length-1]==='') out.pop(); return out; };
-  const text=(s,x,yy,o={})=>{ const f=o.font||(o.bold?fB:fR), sz=o.size||8.5; const tx=pdfSafe(s); let xx=x; if(o.align==='center') xx=x+(o.w-f.widthOfTextAtSize(tx,sz))/2; if(o.align==='right') xx=x+o.w-f.widthOfTextAtSize(tx,sz); page.drawText(tx,{x:xx,y:yy,size:sz,font:f,color:o.color||C.t}); };
-  const rect=(x,yy,w,h,o={})=>page.drawRectangle({x,y:yy,width:w,height:h,color:o.fill,borderColor:o.border,borderWidth:o.border?(o.bw||0.7):0});
-  const hline=(x,yy,w,o={})=>page.drawLine({start:{x,y:yy},end:{x:x+w,y:yy},thickness:o.t||0.8,color:o.color||C.ln});
+  const wrap=(s,font,size,maxW)=>{ const out=[]; pdfSafe(s).split('\n').forEach(par=>{ const words=par.split(/\s+/).filter(Boolean); let line=''; if(!words.length){ out.push(''); return; } words.forEach(wd=>{ const tryL=line?line+' '+wd:wd; if(font.widthOfTextAtSize(tryL,size)<=maxW){ line=tryL; return; } if(line) out.push(line); while(font.widthOfTextAtSize(wd,size)>maxW&&wd.length>1){ let k=wd.length; while(k>1&&font.widthOfTextAtSize(wd.slice(0,k),size)>maxW) k--; out.push(wd.slice(0,k)); wd=wd.slice(k); } line=wd; }); if(line) out.push(line); }); while(out.length&&out[out.length-1]==='') out.pop(); return out; };
+  const text=(s,x,yy,o={})=>{ const f=o.font||(o.bold?fB:fR), sz=o.size||9; const tx=pdfSafe(s); let xx=x; if(o.align==='center') xx=x+(o.w-f.widthOfTextAtSize(tx,sz))/2; if(o.align==='right') xx=x+o.w-f.widthOfTextAtSize(tx,sz); page.drawText(tx,{x:xx,y:yy,size:sz,font:f,color:o.color||C.t}); };
+  const rect=(x,yy,w,h,o={})=>page.drawRectangle({x,y:yy,width:w,height:h,color:o.fill,borderColor:o.border,borderWidth:o.border?(o.bw||0.6):0});
+  const hline=(x,yy,w,o={})=>page.drawLine({start:{x,y:yy},end:{x:x+w,y:yy},thickness:o.t||0.6,color:o.color||C.b});
+
+  /* encabezado: banda verde TMAZ como en la AST */
   const header=()=>{
     page=doc.addPage([W,H]); pages.push(page);
-    const top=H-M, hh=66, lw=100, rw=96, mw=CW-lw-rw;
-    rect(M,top-hh,CW,hh,{border:C.ln,bw:1});
-    page.drawLine({start:{x:M+lw,y:top},end:{x:M+lw,y:top-hh},thickness:1,color:C.ln});
-    page.drawLine({start:{x:M+lw+mw,y:top},end:{x:M+lw+mw,y:top-hh},thickness:1,color:C.ln});
-    const ls=logo.scaleToFit(lw-14,hh-14); page.drawImage(logo,{x:M+(lw-ls.width)/2,y:top-hh+(hh-ls.height)/2,width:ls.width,height:ls.height});
-    const r1=24, r2=21; hline(M+lw,top-r1,mw+rw,{t:1}); hline(M+lw,top-r1-r2,mw,{t:1});
-    const half=mw*0.52;
-    page.drawLine({start:{x:M+lw+half,y:top},end:{x:M+lw+half,y:top-r1},thickness:1,color:C.ln});
-    text('TIPO:',M+lw+4,top-9,{bold:true,size:6.5}); text(FORM.tipo,M+lw,top-19,{bold:true,size:8,align:'center',w:half});
-    text('ÁREA:',M+lw+half+4,top-9,{bold:true,size:6.5}); text(FORM.area,M+lw+half+4,top-19,{bold:true,size:8});
-    text('FECHA:',M+lw+mw+4,top-9,{bold:true,size:6.5}); text(FORM.fecha,M+lw+mw+4,top-19,{bold:true,size:8});
-    text('TÍTULO: REPORTE DE INCIDENTE',M+lw,top-r1-14,{bold:true,size:10,align:'center',w:mw});
-    text(FORM.code,M+lw,top-hh+8,{bold:true,size:9.5,align:'center',w:mw});
-    text('VERSIÓN:',M+lw+mw,top-r1-17,{bold:true,size:11,align:'center',w:rw}); text(FORM.ver,M+lw+mw,top-hh+8,{bold:true,size:10,align:'center',w:rw});
-    text('Folio: '+S.folio,M,top-hh-11,{size:7.5,color:C.m,align:'right',w:CW});
-    y=top-hh-18;
+    if(pages.length>1){ const bh=44; rect(0,H-bh,W,bh,{fill:C.g}); rect(0,H-bh-3,W,3,{fill:C.r});
+      rect(M,H-bh+8,58,28,{fill:C.w}); const ls=logo.scaleToFit(50,22); page.drawImage(logo,{x:M+4+(50-ls.width)/2,y:H-bh+11+(22-ls.height)/2,width:ls.width,height:ls.height});
+      text('REPORTE DE INCIDENTE',M+70,H-27,{bold:true,size:12.5,color:C.w});
+      text(`${FORM.code}  ·  Versión ${FORM.ver}`,M,H-27,{size:7.5,color:C.w,align:'right',w:CW});
+      y=H-bh-3-14; return; }
+    const bh=74; rect(0,H-bh,W,bh,{fill:C.g}); rect(0,H-bh-3.5,W,3.5,{fill:C.r});
+    rect(M,H-bh+12,92,50,{fill:C.w}); const ls=logo.scaleToFit(80,40); page.drawImage(logo,{x:M+6+(80-ls.width)/2,y:H-bh+17+(40-ls.height)/2,width:ls.width,height:ls.height});
+    text('REPORTE DE INCIDENTE',M+106,H-36,{bold:true,size:19,color:C.w});
+    text('Terminal Marítima Mazatlán  ·  Seguridad Industrial  ·  Registro',M+106,H-52,{size:8.5,color:C.w});
+    const rx=W-M-170; [['Código',FORM.code],['Fecha',FORM.fecha],['Versión',FORM.ver]].forEach(([k,v],i)=>{ const yy=H-28-i*12; text(k.toUpperCase(),rx,yy,{size:6.5,bold:true,color:hexRgb('BFD8C7')}); text(v,rx+38,yy,{size:8,bold:i===0,color:C.w}); });
+    y=H-bh-3.5-16;
   };
-  const ensure=h=>{ if(y-h<M+22){ header(); return true; } return false; };
-  const section=(s)=>{ ensure(60); rect(M,y-15,CW,15,{fill:C.g2}); text(s,M,y-11,{bold:true,size:9,color:C.w,align:'center',w:CW}); y-=15; };
-  // fila de pares etiqueta/valor; cols: [{l,v,lw,vw}] en proporciones del ancho
-  const row=(cells,o={})=>{ const sz=o.size||8.5, lh=sz*1.25, pad=3.5; const tw=cells.reduce((a,c)=>a+c.lw+c.vw,0), k=CW/tw;
-    const lay=cells.map(c=>({...c,LW:c.lw*k,VW:c.vw*k,LL:wrap(c.l,fB,6.6,c.lw*k-2*pad),VL:c.box?[]:wrap(c.v,fR,sz,c.vw*k-2*pad)}));
-    const h=Math.max(o.min||14,...lay.map(c=>Math.max(c.LL.length*8+2*pad-1,(c.VL.length||1)*lh+2*pad)));
-    ensure(h); let x=M;
-    lay.forEach(c=>{ rect(x,y-h,c.LW,h,{fill:C.lab}); c.LL.forEach((ln,j)=>text(ln,x+pad,y-pad-6.6-j*8,{bold:true,size:6.6,color:C.w})); x+=c.LW;
-      if(c.box){ c.box(x,y,c.VW,h); } else c.VL.forEach((ln,j)=>text(ln,x+pad,y-pad-sz-j*lh,{size:sz})); x+=c.VW; });
-    hline(M,y-h,CW); y-=h; };
-  const block=(label,val,o={})=>{ const sz=8.5, lh=sz*1.3, pad=4; const LL=wrap(label,fB,6.8,(o.lw||CW*0.5)-2*pad); const lh0=LL.length*8.4+2*pad; ensure(lh0+lh*2);
-    rect(M,y-lh0,o.lw||CW*0.5,lh0,{fill:C.lab}); LL.forEach((ln,j)=>text(ln,M+pad,y-pad-6.8-j*8.4,{bold:true,size:6.8,color:C.w})); hline(M,y-lh0,CW); y-=lh0;
-    const VL=has(val)?wrap(val,fR,sz,CW-2*pad):['']; const n=Math.max(o.lines||2,VL.length);
-    for(let j=0;j<n;j++){ if(ensure(lh+2)){} text(VL[j]||'',M+pad,y-sz-2,{size:sz}); y-=lh+2; hline(M,y,CW,{t:0.6}); } y-=3; };
-  const box=(x,yy,on,sz=8)=>{ rect(x,yy,sz,sz,{border:C.ln,bw:1.1}); if(on){ page.drawLine({start:{x:x+1.6,y:yy+1.6},end:{x:x+sz-1.6,y:yy+sz-1.6},thickness:1.3,color:C.t}); page.drawLine({start:{x:x+1.6,y:yy+sz-1.6},end:{x:x+sz-1.6,y:yy+1.6},thickness:1.3,color:C.t}); } };
-  const boxes=(opts,sel,extra)=>(x,yy,w,h)=>{ const per=Math.min((w-8)/opts.length,140); let cx=x+4, cy=yy-11; const lineW=w-8; let used=0;
-    opts.forEach((op,i)=>{ const lbl=op+(op==='Otra'&&extra&&sel.includes('Otra')?': '+extra:''); const tw=fR.widthOfTextAtSize(pdfSafe(lbl),7.6)+18; const ww=Math.max(per,tw); if(used+ww>lineW&&used>0){ cx=x+4; used=0; cy-=12; } box(cx,cy,sel.includes(op)); text(lbl,cx+11,cy+1,{size:7.6}); cx+=ww; used+=ww; }); };
-  const boxRowsH=(opts,sel,extra,w)=>{ const per=Math.min((w-8)/opts.length,140); let used=0,lines=1; opts.forEach(op=>{ const lbl=op+(op==='Otra'&&extra&&sel.includes('Otra')?': '+extra:''); const ww=Math.max(per,fR.widthOfTextAtSize(pdfSafe(lbl),7.6)+18); if(used+ww>w-8&&used>0){ used=0; lines++; } used+=ww; }); return lines*12+6; };
+  const ensure=h=>{ if(y-h<FOOT){ header(); return true; } return false; };
+  const section=(num,title,need=70)=>{ ensure(need); const h=20; rect(M,y-h,CW,h,{fill:C.g}); rect(M,y-h,4,h,{fill:C.r});
+    const nw=fB.widthOfTextAtSize(num,9)+12; rect(M+12,y-h+4,nw,12,{fill:C.w}); text(num,M+12,y-h+7.2,{bold:true,size:9,color:C.g,align:'center',w:nw});
+    text(title,M+12+nw+8,y-h+6.6,{bold:true,size:10,color:C.w}); y-=h+GAP; };
 
-  const d=S.d,c=S.c,x=S.x,e=S.e;
+  /* celdas: etiqueta pequeña verde + valor; checkbox con palomita */
+  const PAD=6, LSZ=6.4, LLH=7.8, VSZ=9, VLH=11.6, BX=8.5;
+  const check=(x,yy,on)=>{ if(on){ rect(x,yy,BX,BX,{fill:C.g2}); page.drawLine({start:{x:x+1.8,y:yy+4.4},end:{x:x+3.6,y:yy+2.2},thickness:1.4,color:C.w}); page.drawLine({start:{x:x+3.6,y:yy+2.2},end:{x:x+7,y:yy+6.6},thickness:1.4,color:C.w}); } else rect(x,yy,BX,BX,{fill:C.w,border:C.bs,bw:0.9}); };
+  const optLayout=(c,w)=>{ const inner=w-2*PAD; if(c.cols){ const cw=inner/c.cols; return {rows:Math.ceil(c.opts.length/c.cols),pos:c.opts.map((o,i)=>({o,x:(i%c.cols)*cw,r:Math.floor(i/c.cols)}))}; }
+    let x=0,r=0; const pos=c.opts.map(o=>{ const ww=fB.widthOfTextAtSize(pdfSafe(o),8)+BX+18; if(x+ww>inner&&x>0){ x=0; r++; } const p={o,x,r}; x+=ww; return p; }); return {rows:r+1,pos}; };
+  const measure=(c,w)=>{ const LL=wrap(c.l.toUpperCase(),fB,LSZ,w-2*PAD); let body;
+    if(c.opts){ c._lay=optLayout(c,w); body=c._lay.rows*14-2; }
+    else if(c.sig){ body=c.sig; }
+    else { c._VL=has(c.v)?wrap(c.v,c.bold?fB:fR,VSZ,w-2*PAD):[]; c._ln=c._VL.length?c._VL.length:(c.lines||1); body=c._ln*VLH; }
+    c._LL=LL; return PAD+LL.length*LLH+4+body+PAD-2; };
+  const drawCell=async(c,x,top,w,h)=>{ rect(x,top-h,w,h,{fill:c.fill||C.w,border:C.b}); let yy=top-PAD-LSZ+0.5;
+    c._LL.forEach(ln=>{ text(ln,x+PAD,yy,{bold:true,size:LSZ,color:C.lab}); yy-=LLH; }); yy-=4-LLH+VSZ;
+    if(c.opts){ c._lay.pos.forEach(p=>{ const on=(c.sel||[]).includes(p.o); const py=yy-p.r*14-1; check(x+PAD+p.x,py,on); text(p.o,x+PAD+p.x+BX+5,py+1.2,{size:8,bold:on,color:on?C.t:C.m}); }); }
+    else if(c.sig){ await c.draw(x,top-h,w,h); }
+    else { if(c._VL.length) c._VL.forEach((ln,j)=>text(ln,x+PAD,yy-j*VLH+1,{size:VSZ,bold:!!c.bold}));
+      else if(c.ph) text(c.ph,x+PAD,yy+1,{size:8,font:fI,color:C.ph});
+      if(!c._VL.length&&c._ln>1) for(let j=0;j<c._ln;j++) hline(x+PAD,yy-j*VLH-3,w-2*PAD,{color:hexRgb('E1E9E3'),t:0.5}); } };
+  const grid=async(cells)=>{ const ws=cells.map(c=>c.w||1/cells.length), free=CW-GAP*(cells.length-1); const px=ws.map(f=>f*free);
+    const h=Math.max(...cells.map((c,i)=>measure(c,px[i]))); const hh=Math.max(h,cells.reduce((a,c)=>Math.max(a,c.minH||0),0)); ensure(hh); let x=M;
+    for(let i=0;i<cells.length;i++){ await drawCell(cells[i],x,y,px[i],hh); x+=px[i]+GAP; } y-=hh+GAP; };
+
+  const d=S.d,c=S.c,x=S.x,e=S.e, NA='No aplica';
   header();
-  section('I. DATOS GENERALES');
-  row([{l:'NOMBRE TESTIGO ENTREVISTADO:',v:d.testigo,lw:1.9,vw:3.4},{l:'CARGO:',v:d.cargo,lw:1,vw:1.7}]);
-  row([{l:'SUPERVISOR:',v:d.supervisor,lw:1.9,vw:3.4},{l:'TURNO:',v:d.turno,lw:1,vw:1.7}]);
-  row([{l:'ANTIGÜEDAD EN EL CARGO:',v:d.antig,lw:1.9,vw:3.4},{l:'EDAD:',v:has(d.edad)?d.edad+' años':'',lw:1,vw:1.7}]);
-  row([{l:'LUGAR DEL INCIDENTE:',v:d.lugar,lw:1.9,vw:6.1}],{min:20});
-  row([{l:'DATOS DE CONTACTO (TELÉFONO, DIRECCIÓN, CELULAR):',v:d.contacto,lw:1.9,vw:6.1}],{min:22});
-  row([{l:'EMPRESA (TMAZ / EXTERNO):',v:d.empresa==='EXTERNO'?('EXTERNO'+(has(d.empresaNom)?' - '+d.empresaNom:'')):'TMAZ',lw:1.9,vw:6.1}]);
-  row([{l:'FECHA DEL INCIDENTE',v:fmtDate(d.fInc),lw:1.9,vw:3.4},{l:'HORA INCIDENTE:',v:d.hInc,lw:1,vw:1.7}]);
-  row([{l:'FECHA ENTREVISTA:',v:fmtDate(d.fEnt),lw:1.9,vw:3.4},{l:'HORA ENTREVISTA:',v:d.hEnt,lw:1,vw:1.7}]);
-  row([{l:'ACTIVIDAD REALIZADA DURANTE EL INCIDENTE:',v:d.actividad,lw:1.9,vw:6.1}],{min:20});
-  { const vw=CW*6.1/8; const h=boxRowsH(CARGA,d.carga,d.cargaOtra,vw); row([{l:'TIPO DE CARGA:',lw:1.9,vw:6.1,box:boxes(CARGA,d.carga,d.cargaOtra)}],{min:h}); }
-  { const vw=CW*6.1/8; const h=boxRowsH(ALCANCE,d.alcance,'',vw); row([{l:'ALCANCE DEL INCIDENTE:',lw:1.9,vw:6.1,box:boxes(ALCANCE,d.alcance,'')}],{min:h}); }
-  row([{l:'LUGAR DEL INCIDENTE (EJ. ALMACÉN, MUELLE, PATIO, ACCESO, ÁREA ESPECÍFICA, ETC.):',v:d.area,lw:2.4,vw:5.6}],{min:24});
 
-  section('II. CONTEXTO DE LA ACTIVIDAD');
-  row([{l:'PUESTO / TRABAJO HABITUAL (MANIOBRISTA, OPERADOR, MECÁNICO, SOLDADOR, CHOFER, SUPERVISOR, ETC.):',v:c.puesto,lw:2.4,vw:5.6}],{min:24});
-  row([{l:'¿LA ACTIVIDAD REALIZADA CORRESPONDÍA A SU TRABAJO HABITUAL?',lw:4.2,vw:3.8,box:(bx,by,bw,bh)=>{ const cy=by-bh/2-3.5; box(bx+14,cy,c.habitual==='si'); text('SÍ',bx+25,cy+1,{size:8}); box(bx+90,cy,c.habitual==='no'); text('NO',bx+101,cy+1,{size:8}); }}],{min:16});
-  row([{l:'EN CASO DE NO SER SU ACTIVIDAD HABITUAL, INDIQUE EL MOTIVO:',v:c.habitual==='no'?c.motivo:'',lw:2.4,vw:5.6}],{min:22});
+  /* ficha resumen */
+  { const tiles=[['Incidente',[fmtDate(d.fInc)||'Sin fecha',d.hInc?d.hInc+' h':''].filter(Boolean).join('  ·  ')],['Lugar',d.lugar||'Sin lugar'],['Alcance',d.alcance.join(', ')||'Sin indicar'],['Empresa',d.empresa==='EXTERNO'?(d.empresaNom||'Externo'):'TMAZ']];
+    const tw=(CW-GAP*3)/4; const VL=tiles.map(t=>wrap(t[1],fB,9,tw-14).slice(0,2)); const h=12+8+Math.max(...VL.map(v=>v.length))*11+6; ensure(h);
+    tiles.forEach((t,i)=>{ const tx=M+i*(tw+GAP); rect(tx,y-h,tw,h,{fill:C.tint}); rect(tx,y-h,3,h,{fill:C.g2}); text(t[0].toUpperCase(),tx+9,y-13,{bold:true,size:6.4,color:C.g2}); VL[i].forEach((ln,j)=>text(ln,tx+9,y-26-j*11,{bold:true,size:9})); });
+    y-=h+12; }
 
-  section('III. DESCRIPCIÓN DEL INCIDENTE');
-  block('ACTIVIDAD QUE REALIZABA JUSTO ANTES DEL INCIDENTE:',x.antes,{lines:2});
-  block('DESCRIBA EL HECHO OCURRIDO (EJ. CAÍDA, GOLPE, CONTACTO, DERRAME, ETC.), SIN INDICAR CAUSAS.',x.hecho,{lines:3});
-  block('INDIQUE LA CONSECUENCIA INMEDIATAMENTE DESPUÉS DEL INCIDENTE (LESIÓN, DAÑO MATERIAL, AFECTACIÓN AMBIENTAL, DETENER LA ACTIVIDAD, ETC.).',x.consec,{lines:2,lw:CW*0.6});
-  block('¿QUÉ OCURRIÓ INMEDIATAMENTE DESPUÉS DEL INCIDENTE? (APOYO RECIBIDO, DETENER LAS ACTIVIDADES, NOTIFICAR, ETC.).',x.despues,{lines:3,lw:CW*0.6});
+  section('I','DATOS GENERALES');
+  await grid([{l:'Nombre del testigo entrevistado',v:d.testigo,w:.5,bold:1},{l:'Cargo',v:d.cargo,w:.3},{l:'Edad',v:has(d.edad)?d.edad+' años':'',w:.2}]);
+  await grid([{l:'Supervisor',v:d.supervisor,w:.5},{l:'Turno',v:d.turno,w:.25},{l:'Antigüedad en el cargo',v:d.antig,w:.25}]);
+  await grid([{l:'Empresa (TMAZ / externo)',v:d.empresa==='EXTERNO'?('Externo'+(has(d.empresaNom)?': '+d.empresaNom:'')):'TMAZ',w:.5},{l:'Datos de contacto (teléfono, dirección, celular)',v:d.contacto,w:.5}]);
+  await grid([{l:'Fecha del incidente',v:fmtDate(d.fInc)},{l:'Hora del incidente',v:d.hInc},{l:'Fecha de entrevista',v:fmtDate(d.fEnt)},{l:'Hora de entrevista',v:d.hEnt}]);
+  await grid([{l:'Lugar del incidente',v:d.lugar,w:.6},{l:'Área específica (almacén, muelle, patio, acceso…)',v:d.area,w:.4}]);
+  await grid([{l:'Actividad realizada durante el incidente',v:d.actividad,w:1,lines:1}]);
+  await grid([{l:'Tipo de carga',opts:CARGA,sel:d.carga,w:.62},{l:'Alcance del incidente',opts:ALCANCE,sel:d.alcance,w:.38}]);
+  if(d.carga.includes('Otra')) await grid([{l:'Otra carga (especifique)',v:d.cargaOtra,w:1}]);
 
-  section('IV. CONDICIONES DEL ENTORNO');
-  { const sz=7.8; ensure(20); text('MARQUE LAS CONDICIONES QUE CONSIDERE ESTUVIERON PRESENTES AL MOMENTO DEL INCIDENTE:',M+4,y-11,{bold:true,size:7}); y-=16;
-    const cols=3, cw=CW/cols; const items=COND.map(k=>k==='Otra'?'Otra (especifique)'+(e.cond.includes('Otra')&&has(e.otra)?': '+e.otra:''):k);
-    for(let i=0;i<items.length;i+=cols){ const ls=items.slice(i,i+cols).map(t=>wrap(t.toUpperCase(),fR,sz,cw-22)); const h=Math.max(...ls.map(l=>l.length))*9.5+5; ensure(h); ls.forEach((l,j)=>{ const bx=M+4+j*cw; box(bx,y-11,e.cond.includes(COND[i+j])); l.forEach((ln,q)=>text(ln,bx+13,y-10-q*9.5,{size:sz})); }); y-=h; }
-    y-=2; hline(M,y,CW,{t:0.6}); }
-  block('DESDE SU PERCEPCIÓN, INDIQUE QUÉ FACTORES CONSIDERA QUE INFLUYERON EN EL INCIDENTE.',e.factores,{lines:3});
+  section('II','CONTEXTO DE LA ACTIVIDAD');
+  await grid([{l:'Puesto / trabajo habitual',v:c.puesto,w:.5,bold:1},{l:'¿La actividad correspondía a su trabajo habitual?',opts:['Sí','No'],sel:[c.habitual==='si'?'Sí':c.habitual==='no'?'No':''],w:.5}]);
+  await grid([{l:'En caso de no ser su actividad habitual, indique el motivo',v:c.habitual==='no'?c.motivo:'',ph:c.habitual==='si'?NA:'',w:1,lines:c.habitual==='si'?1:2}]);
 
-  section('V. MEDIDAS PREVENTIVAS Y ACCIONES INMEDIATAS');
-  row([{l:'¿CONSIDERA QUE EL INCIDENTE PUDO PREVENIRSE?',lw:4.2,vw:3.8,box:(bx,by,bw,bh)=>{ const cy=by-bh/2-3.5; box(bx+14,cy,e.prev==='si'); text('SÍ',bx+25,cy+1,{size:8}); box(bx+90,cy,e.prev==='no'); text('NO',bx+101,cy+1,{size:8}); }}],{min:16});
-  block('EN CASO AFIRMATIVO, INDIQUE CÓMO:',e.prev==='si'?e.como:'',{lines:2,lw:CW*0.4});
-  block('INDIQUE LAS ACCIONES REALIZADAS INMEDIATAMENTE DESPUÉS DEL INCIDENTE (EJ. DETENER LAS ACTIVIDADES, NOTIFICAR AL SUPERVISOR, APLICAR PRIMEROS AUXILIOS, AISLAR EL ÁREA, TRASLADAR A LESIONADO(S), ETC.):',e.acciones,{lines:3,lw:CW});
+  section('III','DESCRIPCIÓN DEL INCIDENTE');
+  await grid([{l:'Actividad que realizaba justo antes del incidente',v:x.antes,w:1,lines:2}]);
+  await grid([{l:'Hecho ocurrido (caída, golpe, contacto, derrame, etc.), sin indicar causas',v:x.hecho,w:1,lines:3}]);
+  await grid([{l:'Consecuencia inmediata (lesión, daño material, afectación ambiental, detener la actividad, etc.)',v:x.consec,w:1,lines:2}]);
+  await grid([{l:'¿Qué ocurrió inmediatamente después? (apoyo recibido, detener actividades, notificar, etc.)',v:x.despues,w:1,lines:2}]);
 
-  // VI + VII juntas en la misma hoja
-  { const decl=`YO, ${has(d.testigo)?d.testigo.toUpperCase():'______________________________________________'}, DECLARO QUE LA INFORMACIÓN PROPORCIONADA EN EL PRESENTE REPORTE ES VERAZ Y CORRESPONDE A LOS HECHOS OCURRIDOS CONFORME A MI CONOCIMIENTO. ESTOY CONSCIENTE DE QUE LA SIMULACIÓN O DECLARACIÓN FALSA DE UN INCIDENTE PUEDE DERIVAR EN LAS SANCIONES APLICABLES CONFORME A LA LEGISLACIÓN VIGENTE.`;
-    const DL=wrap(decl,fB,8,CW-16), LG=wrap(LEGAL,fI,6.8,CW-8); const need=15+DL.length*10.5+12+LG.length*8.4+10+15+150; ensure(need);
-    section('VI. DECLARACIÓN: NOMBRE Y FIRMA DEL TESTIGO ENTREVISTADO');
-    y-=6; DL.forEach(ln=>{ text(ln,M+8,y-8,{bold:true,size:8}); y-=10.5; }); y-=6;
-    LG.forEach(ln=>{ text(ln,M+4,y-7,{font:fI,size:6.8,color:C.m}); y-=8.4; }); y-=8;
-    section('VII. FIRMAS');
-    const bw=(CW-30)/2, bh=96; y-=8;
-    const sig=async(bx,o,name,role,cargo)=>{ if(o.img){ const im=await doc.embedPng(b64ToBytes(dataB64(o.img))); const s=im.scaleToFit(bw-20,bh-26); page.drawImage(im,{x:bx+(bw-s.width)/2,y:y-bh+22+(bh-26-s.height)/2,width:s.width,height:s.height}); }
-      hline(bx,y-bh+20,bw,{t:0.9,color:C.t}); text(pdfSafe(name||' ').toUpperCase(),bx,y-bh+10,{bold:true,size:8,align:'center',w:bw}); text(role+(cargo?' · '+cargo:''),bx,y-bh+1,{size:7,align:'center',w:bw,color:C.m}); if(o.img) text('Firmado: '+fmtTs(o.ts),bx,y-bh-8,{size:6.3,align:'center',w:bw,color:C.m}); };
-    await sig(M,S.f.testigo,d.testigo,'Nombre y firma del testigo / entrevistado',d.cargo);
-    await sig(M+bw+30,S.f.entrevistador,S.f.entrevistador.nombre,'Nombre y firma del entrevistador',S.f.entrevistador.cargo);
-    y-=bh+14; }
+  section('IV','CONDICIONES DEL ENTORNO');
+  await grid([{l:'Condiciones presentes al momento del incidente (según el testigo)',opts:COND.map(k=>k==='Otra'?'Otra (especifique)':k),sel:e.cond.map(k=>k==='Otra'?'Otra (especifique)':k),cols:3,w:1}]);
+  if(e.cond.includes('Otra')) await grid([{l:'Otra condición (especifique)',v:e.otra,w:1}]);
+  await grid([{l:'Desde su percepción, ¿qué factores influyeron en el incidente?',v:e.factores,w:1,lines:2}]);
 
-  // anexo fotográfico: 2 por hoja
+  section('V','MEDIDAS PREVENTIVAS Y ACCIONES INMEDIATAS');
+  await grid([{l:'¿Considera que el incidente pudo prevenirse?',opts:['Sí','No'],sel:[e.prev==='si'?'Sí':e.prev==='no'?'No':''],w:.34},{l:'En caso afirmativo, indique cómo',v:e.prev==='si'?e.como:'',ph:e.prev==='no'?NA:'',w:.66,lines:2}]);
+  await grid([{l:'Acciones realizadas inmediatamente después (detener actividades, notificar al supervisor, primeros auxilios, aislar el área, traslado…)',v:e.acciones,w:1,lines:2}]);
+
+  /* VI y VII juntas */
+  { const decl=`YO, ${has(d.testigo)?d.testigo.toUpperCase():'____________________________________'}, DECLARO QUE LA INFORMACIÓN PROPORCIONADA EN EL PRESENTE REPORTE ES VERAZ Y CORRESPONDE A LOS HECHOS OCURRIDOS CONFORME A MI CONOCIMIENTO. ESTOY CONSCIENTE DE QUE LA SIMULACIÓN O DECLARACIÓN FALSA DE UN INCIDENTE PUEDE DERIVAR EN LAS SANCIONES APLICABLES CONFORME A LA LEGISLACIÓN VIGENTE.`;
+    const DL=wrap(decl,fB,8.4,CW-26), LG=wrap(LEGAL,fI,6.7,CW-26); const dh=12+DL.length*11+6+LG.length*8.3+10; const sh=118; ensure(26+dh+GAP+4+26+(PAD+LLH+4+(sh-26)+PAD-2)+2);
+    section('VI','DECLARACIÓN DEL TESTIGO ENTREVISTADO',0);
+    rect(M,y-dh,CW,dh,{fill:C.tint}); rect(M,y-dh,3,dh,{fill:C.g2}); let yy=y-12-8.4+2;
+    DL.forEach(ln=>{ text(ln,M+13,yy,{bold:true,size:8.4,color:C.g}); yy-=11; }); yy-=4;
+    LG.forEach(ln=>{ text(ln,M+13,yy,{font:fI,size:6.7,color:C.m}); yy-=8.3; }); y-=dh+GAP+4;
+    section('VII','FIRMAS',0);
+    const sigCell=(o,name,role,cargo)=>({l:role,sig:sh-26,w:.5,draw:async(cx,cy,cw,ch)=>{ const area={x:cx+PAD,y:cy+40,w:cw-2*PAD,h:ch-40-22}; rect(area.x,area.y,area.w,area.h,{fill:C.sub});
+      if(o.img){ const im=await doc.embedPng(b64ToBytes(dataB64(o.img))); const s=im.scaleToFit(area.w-16,area.h-8); page.drawImage(im,{x:area.x+(area.w-s.width)/2,y:area.y+(area.h-s.height)/2,width:s.width,height:s.height}); }
+      hline(cx+PAD+10,cy+38,cw-2*PAD-20,{color:C.t,t:0.8});
+      text(pdfSafe(name||' ').toUpperCase(),cx,cy+27,{bold:true,size:8.6,align:'center',w:cw});
+      text([cargo,o.img?'Firmado '+fmtTs(o.ts):''].filter(Boolean).join('  ·  ')||' ',cx,cy+16,{size:7,color:C.m,align:'center',w:cw}); }});
+    await grid([sigCell(S.f.testigo,d.testigo,'Nombre y firma del testigo / entrevistado',d.cargo),sigCell(S.f.entrevistador,S.f.entrevistador.nombre,'Nombre y firma del entrevistador',S.f.entrevistador.cargo)]); }
+
+  /* anexo fotográfico: 2 por hoja */
   if(S.fotos.length){
-    const per=2, boxH=(H-2*M-66-18-30-18)/per-34;
+    let cellH=0;
     for(let i=0;i<S.fotos.length;i++){
-      if(i%per===0){ header(); section(`ANEXO FOTOGRÁFICO (${S.fotos.length} FOTO${S.fotos.length>1?'S':''})`); y-=8; }
-      const p=S.fotos[i]; const im=await doc.embedJpg(b64ToBytes(dataB64(p.img))); const s=im.scaleToFit(CW-12,boxH-6);
-      rect(M,y-boxH,CW,boxH,{fill:C.sub,border:C.b}); page.drawImage(im,{x:M+(CW-s.width)/2,y:y-boxH+(boxH-s.height)/2,width:s.width,height:s.height});
-      rect(M+6,y-20,30,15,{fill:C.g2}); text(String(i+1),M+6,y-16,{bold:true,size:9,color:C.w,align:'center',w:30});
-      y-=boxH+4; const CL=wrap(`Foto ${i+1}: `+(has(p.cap)?p.cap:'Sin descripción'),fR,8.2,CW-10).slice(0,2); CL.forEach(ln=>{ text(ln,M+4,y-8,{size:8.2}); y-=10.5; }); y=y-(2-CL.length)*10.5-10;
+      if(i%2===0){ header(); section('ANEXO',`REGISTRO FOTOGRÁFICO · ${S.fotos.length} FOTO${S.fotos.length>1?'S':''}`,0); cellH=(y-FOOT-6-GAP)/2; }
+      const p=S.fotos[i]; const CL=wrap(has(p.cap)?p.cap:'Sin descripción',has(p.cap)?fR:fI,8.6,CW-60).slice(0,2);
+      const capH=10+CL.length*11+6, imH=cellH-capH-2*PAD;
+      rect(M,y-cellH,CW,cellH,{fill:C.w,border:C.b}); rect(M+PAD,y-PAD-imH,CW-2*PAD,imH,{fill:C.sub});
+      const im=await doc.embedJpg(b64ToBytes(dataB64(p.img))); const s=im.scaleToFit(CW-2*PAD,imH); page.drawImage(im,{x:M+(CW-s.width)/2,y:y-PAD-imH+(imH-s.height)/2,width:s.width,height:s.height});
+      const by=y-cellH+PAD; rect(M+PAD,by+capH-20,32,16,{fill:C.g2}); text(String(i+1),M+PAD,by+capH-15.5,{bold:true,size:10,color:C.w,align:'center',w:32});
+      text('FOTO '+(i+1)+(p.ts?'  ·  '+fmtTs(p.ts):''),M+PAD+42,by+capH-11,{bold:true,size:6.4,color:C.lab});
+      CL.forEach((ln,j)=>text(ln,M+PAD+42,by+capH-23-j*11,{size:8.6,font:has(p.cap)?fR:fI,color:has(p.cap)?C.t:C.ph}));
+      y-=cellH+GAP;
     }
   }
+
   const n=pages.length, gen=fmtTs(Date.now());
-  pages.forEach((pg,i)=>{ page=pg; hline(M,M+10,CW,{t:0.5,color:C.b}); text(`${FORM.code} · Versión ${FORM.ver} · Folio ${S.folio} · Generado ${gen}`,M,M,{size:6.8,color:C.m}); text(`Página ${i+1} de ${n}`,M,M,{size:6.8,color:C.m,align:'right',w:CW}); });
+  pages.forEach((pg,i)=>{ page=pg; hline(M,M+11,CW,{t:0.6,color:C.bs}); text(`${FORM.code}  ·  Versión ${FORM.ver}  ·  Generado ${gen}`,M,M,{size:6.8,color:C.m}); text(`Página ${i+1} de ${n}`,M,M,{size:6.8,bold:true,color:C.g2,align:'right',w:CW}); });
   return doc.save();
 }
 
